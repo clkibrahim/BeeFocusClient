@@ -1,13 +1,19 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../shared/presentation/widgets/app_drawer.dart';
+import '../../data/reports_model.dart';
+import '../state/reports_provider.dart';
 
-class ReportsPage extends StatelessWidget {
+class ReportsPage extends ConsumerWidget {
   const ReportsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weeklyReportAsync = ref.watch(weeklyReportProvider);
+    final totalSummaryAsync = ref.watch(totalSummaryProvider);
+
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
@@ -19,52 +25,151 @@ class ReportsPage extends StatelessWidget {
         ),
         title: const Text('Raporlar'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.invalidate(weeklyReportProvider);
+              ref.invalidate(totalSummaryProvider);
+            },
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ListView(
-          children: const [
-            SizedBox(height: 12),
-            _SummaryCard(),
-            SizedBox(height: 16),
-            _SectionTitle('Bu Hafta'),
-            SizedBox(height: 8),
-            _MetricRow(label: 'Toplam Çalışma', value: '12s 40d'),
-            _MetricRow(label: 'Ortalama Günlük', value: '1s 48d'),
-            _MetricRow(label: 'En Uzun Seans', value: '2s 10d'),
-            SizedBox(height: 16),
-            _SectionTitle('Günlük Dağılım'),
-            SizedBox(height: 8),
-            _WeeklyBars(),
-            SizedBox(height: 20),
-            _SectionTitle('Ders Bazında'),
-            SizedBox(height: 8),
-            _SubjectStat(
-              label: 'Matematik',
-              color: AppColors.warning,
-              value: '5s 20d',
+      body: weeklyReportAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+              const SizedBox(height: 16),
+              Text('Bir hata oluştu: $error'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  ref.invalidate(weeklyReportProvider);
+                  ref.invalidate(totalSummaryProvider);
+                },
+                child: const Text('Yeniden Dene'),
+              ),
+            ],
+          ),
+        ),
+        data: (weeklyReport) => totalSummaryAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Hata: $error')),
+          data: (totalSummary) => _ReportsContent(
+            weeklyReport: weeklyReport,
+            totalSummary: totalSummary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportsContent extends StatelessWidget {
+  const _ReportsContent({
+    required this.weeklyReport,
+    required this.totalSummary,
+  });
+
+  final WeeklyReport weeklyReport;
+  final TotalSummary totalSummary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ListView(
+        children: [
+          const SizedBox(height: 12),
+          _SummaryCard(totalSummary: totalSummary),
+          const SizedBox(height: 16),
+          const _SectionTitle('Bu Hafta'),
+          const SizedBox(height: 8),
+          _MetricRow(
+            label: 'Toplam Çalışma',
+            value: weeklyReport.formattedTotal,
+          ),
+          _MetricRow(
+            label: 'Ortalama Günlük',
+            value: weeklyReport.formattedAverageDaily,
+          ),
+          _MetricRow(
+            label: 'En Uzun Seans',
+            value: weeklyReport.formattedLongestSession,
+          ),
+          const SizedBox(height: 16),
+          const _SectionTitle('Günlük Dağılım'),
+          const SizedBox(height: 8),
+          _WeeklyBars(dailyStats: weeklyReport.dailyStats),
+          const SizedBox(height: 20),
+          const _SectionTitle('Ders Bazında'),
+          const SizedBox(height: 8),
+          if (weeklyReport.subjectStats.isEmpty)
+            const _EmptyState(message: 'Bu hafta henüz çalışma kaydı yok')
+          else
+            ...weeklyReport.subjectStats.map(
+              (stat) => _SubjectStat(
+                label: stat.subject.name,
+                color: _getSubjectColor(stat.subject.colorHex),
+                value: stat.formattedDuration,
+              ),
             ),
-            _SubjectStat(
-              label: 'Fizik',
-              color: AppColors.softPink,
-              value: '2s 15d',
-            ),
-            _SubjectStat(
-              label: 'Kimya',
-              color: AppColors.success,
-              value: '1s 55d',
-            ),
-            _SubjectStat(
-              label: 'Biyoloji',
-              color: AppColors.info,
-              value: '1s 10d',
-            ),
-            SizedBox(height: 16),
-            _SectionTitle('Haftalık Hedef'),
-            SizedBox(height: 8),
-            _DonutChart(done: 12.7, target: 15),
-            SizedBox(height: 24),
-          ],
+          const SizedBox(height: 16),
+          const _SectionTitle('Haftalık Hedef'),
+          const SizedBox(height: 8),
+          _DonutChart(
+            done: weeklyReport.completedHours,
+            target: weeklyReport.weeklyGoalHours,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Color _getSubjectColor(String? colorHex) {
+    if (colorHex == null || colorHex.isEmpty) {
+      return AppColors.primary;
+    }
+    try {
+      final hex = colorHex.replaceFirst('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return AppColors.primary;
+    }
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          message,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
       ),
     );
@@ -72,7 +177,9 @@ class ReportsPage extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard();
+  const _SummaryCard({required this.totalSummary});
+
+  final TotalSummary totalSummary;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +227,7 @@ class _SummaryCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               Text(
-                '32s 10d',
+                totalSummary.formattedTotal,
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -133,10 +240,12 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Text('Bu Hafta', style: Theme.of(context).textTheme.bodyMedium),
               Text(
-                '+6h',
+                totalSummary.formattedWeekDifference,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppColors.darkBrown,
+                  color: totalSummary.weekDifference >= 0
+                      ? AppColors.success
+                      : AppColors.error,
                 ),
               ),
             ],
@@ -240,13 +349,16 @@ class _SubjectStat extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 10),
           Text(
             value,
             style: Theme.of(
@@ -260,19 +372,22 @@ class _SubjectStat extends StatelessWidget {
 }
 
 class _WeeklyBars extends StatelessWidget {
-  const _WeeklyBars();
+  const _WeeklyBars({required this.dailyStats});
+
+  final List<DailyStats> dailyStats;
 
   @override
   Widget build(BuildContext context) {
-    final data = [
-      ('Pzt', 0.8),
-      ('Sal', 0.55),
-      ('Çar', 1.0),
-      ('Per', 0.65),
-      ('Cum', 0.35),
-      ('Cmt', 0.9),
-      ('Paz', 0.5),
-    ];
+    // En yüksek değeri bul (normalize için)
+    int maxSeconds = 0;
+    for (final stat in dailyStats) {
+      if (stat.totalSeconds > maxSeconds) {
+        maxSeconds = stat.totalSeconds;
+      }
+    }
+    // Minimum 1 saat baz al
+    if (maxSeconds < 3600) maxSeconds = 3600;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -288,12 +403,15 @@ class _WeeklyBars extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: data
-            .map(
-              (item) =>
-                  _Bar(label: item.$1, value: item.$2, isPeak: item.$2 > 0.95),
-            )
-            .toList(),
+        children: dailyStats.map((stat) {
+          final normalizedValue = stat.totalSeconds / maxSeconds;
+          final isPeak = normalizedValue > 0.95 && stat.totalSeconds > 0;
+          return _Bar(
+            label: stat.dayLabel,
+            value: normalizedValue.clamp(0.0, 1.0),
+            isPeak: isPeak,
+          );
+        }).toList(),
       ),
     );
   }
@@ -327,13 +445,15 @@ class _Bar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isPeak ? AppColors.darkBrown : AppColors.primary,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                boxShadow: height > 0
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
               ),
             ),
           ),
@@ -358,7 +478,7 @@ class _DonutChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (done / target).clamp(0.0, 1.0);
+    final progress = target > 0 ? (done / target).clamp(0.0, 1.0) : 0.0;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

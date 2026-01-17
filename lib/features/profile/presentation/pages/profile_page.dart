@@ -1,22 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../shared/presentation/widgets/app_drawer.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(currentUserProvider);
 
-class _ProfilePageState extends State<ProfilePage> {
-  bool _focusReminders = true;
-  bool _weeklyReports = true;
-  bool _darkMode = false;
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
@@ -31,99 +26,53 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              // Buraya çıkış işlemi bağlanabilir
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Çıkış işlemi için bağlanın')),
-              );
+            onPressed: () async {
+              await ref.read(authNotifierProvider.notifier).logout();
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
           ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ListView(
-          children: [
-            const SizedBox(height: 20),
-            _ProfileHeader(),
-            const SizedBox(height: 16),
-            _StatsRow(),
-            const SizedBox(height: 16),
-            _SectionCard(
-              title: 'Tercihler',
-              child: Column(
-                children: [
-                  _PreferenceTile(
-                    icon: Icons.alarm,
-                    label: 'Odak hatırlatıcıları',
-                    value: _focusReminders,
-                    onChanged: (v) => setState(() => _focusReminders = v),
-                  ),
-                  const Divider(height: 1),
-                  _PreferenceTile(
-                    icon: Icons.insights_outlined,
-                    label: 'Haftalık rapor gönder',
-                    value: _weeklyReports,
-                    onChanged: (v) => setState(() => _weeklyReports = v),
-                  ),
-                  const Divider(height: 1),
-                  _PreferenceTile(
-                    icon: Icons.dark_mode_outlined,
-                    label: 'Koyu tema',
-                    value: _darkMode,
-                    onChanged: (v) => setState(() => _darkMode = v),
-                  ),
-                ],
+        child: userAsync.when(
+          data: (user) => ListView(
+            children: [
+              const SizedBox(height: 20),
+              _ProfileHeader(
+                displayName: user?.displayName ?? 'Kullanıcı',
+                email: user?.email ?? '',
+                initials: user?.initials ?? '?',
               ),
-            ),
-            const SizedBox(height: 16),
-            _SectionCard(
-              title: 'İlerleme Rozetleri',
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: const [
-                  _BadgeChip(label: '7 Gün Serisi', icon: Icons.local_fire_department),
-                  _BadgeChip(label: '5 Saat', icon: Icons.timer),
-                  _BadgeChip(label: 'İlk Hedef', icon: Icons.emoji_events_outlined),
-                ],
+              const SizedBox(height: 16),
+              _SectionCard(
+                title: 'Hesap Bilgileri',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoRow(label: 'Ad Soyad', value: user?.displayName ?? '-'),
+                    _InfoRow(label: 'E-posta', value: user?.email ?? '-'),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _SectionCard(
-              title: 'Hızlı Erişim',
-              child: Column(
-                children: [
-                  _LinkTile(
-                    icon: Icons.edit_outlined,
-                    label: 'Profili düzenle',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profil düzenleme bağlanmadı')),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1),
-                  _LinkTile(
-                    icon: Icons.security_outlined,
-                    label: 'Güvenlik',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Güvenlik ayarları bağlanmadı')),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1),
-                  _LinkTile(
-                    icon: Icons.help_outline,
-                    label: 'Destek',
-                    onTap: () => context.push('/reports'),
-                  ),
-                ],
+              const SizedBox(height: 32),
+              Center(
+                child: Text(
+                  'Profil bilgilerin sadece odak deneyimini kişiselleştirmek için kullanılır.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.mutedBrown),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+            ],
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Hata: $e')),
         ),
       ),
     );
@@ -131,6 +80,16 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.displayName,
+    required this.email,
+    required this.initials,
+  });
+
+  final String displayName;
+  final String email;
+  final String initials;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -157,7 +116,7 @@ class _ProfileHeader extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              'B',
+              initials,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: AppColors.darkBrown,
                 fontWeight: FontWeight.w900,
@@ -165,47 +124,64 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'BeeFocus Kullanıcısı',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'bee@example.com',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: AppColors.mutedBrown),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(Icons.verified_outlined, size: 18, color: AppColors.success),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Premium',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w700,
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  email,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: AppColors.mutedBrown),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppColors.mutedBrown),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profil düzenleme bağlanmadı')),
-              );
-            },
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppColors.mutedBrown),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -214,9 +190,10 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
+  const _StatsRow();
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: const [
         Expanded(

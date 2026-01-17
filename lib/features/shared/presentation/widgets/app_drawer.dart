@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final current = GoRouterState.of(context).name;
+    final userAsync = ref.watch(currentUserProvider);
 
     return Drawer(
       backgroundColor: AppColors.background,
@@ -39,10 +42,36 @@ class AppDrawer extends StatelessWidget {
                     child: Image.asset('assets/images/bee.png'),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'BeeFocus',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  userAsync.when(
+                    data: (user) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.displayName ?? 'BeeFocus',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (user != null)
+                          Text(
+                            user.email,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.mutedBrown,
+                            ),
+                          ),
+                      ],
+                    ),
+                    loading: () => Text(
+                      'BeeFocus',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    error: (_, __) => Text(
+                      'BeeFocus',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -83,9 +112,20 @@ class AppDrawer extends StatelessWidget {
             _DrawerItem(
               icon: Icons.settings_outlined,
               label: 'Ayarlar',
-              onTap: () {},
+              isActive: current == 'settings',
+              onTap: () => context.goNamed('settings'),
             ),
-            _DrawerItem(icon: Icons.logout, label: 'Çıkış Yap', onTap: () {}),
+            _DrawerItem(
+              icon: Icons.logout,
+              label: 'Çıkış Yap',
+              onTap: () async {
+                Navigator.of(context).pop(); // Drawer'ı kapat
+                await ref.read(authNotifierProvider.notifier).logout();
+                if (context.mounted) {
+                  context.go('/login');
+                }
+              },
+            ),
             const SizedBox(height: 12),
           ],
         ),

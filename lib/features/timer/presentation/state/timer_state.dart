@@ -4,12 +4,14 @@ class TimerState {
   const TimerState({
     this.mode = TimerMode.countdown,
     this.isRunning = false,
+    this.isPaused = false,
     this.totalSeconds = 25 * 60,
     this.elapsedSeconds = 0,
   });
 
   final TimerMode mode;
   final bool isRunning;
+  final bool isPaused;
   final int totalSeconds;
   final int elapsedSeconds;
 
@@ -36,12 +38,14 @@ class TimerState {
   TimerState copyWith({
     TimerMode? mode,
     bool? isRunning,
+    bool? isPaused,
     int? totalSeconds,
     int? elapsedSeconds,
   }) {
     return TimerState(
       mode: mode ?? this.mode,
       isRunning: isRunning ?? this.isRunning,
+      isPaused: isPaused ?? this.isPaused,
       totalSeconds: totalSeconds ?? this.totalSeconds,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
     );

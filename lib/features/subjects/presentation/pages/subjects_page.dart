@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../shared/presentation/widgets/app_drawer.dart';
 import '../state/subjects_provider.dart';
+import '../state/selected_subject_provider.dart';
 import '../../data/subject_model.dart';
 
 class SubjectsPage extends ConsumerWidget {
@@ -37,7 +39,16 @@ class SubjectsPage extends ConsumerWidget {
                 const SizedBox(height: 12),
                 ...grouped.entries.expand(
                   (entry) => [
-                    _Section(title: entry.key, items: entry.value),
+                    _Section(
+                      title: entry.key,
+                      items: entry.value,
+                      onTap: (subject) {
+                        // Seçili dersi global state'e yaz
+                        ref.read(selectedSubjectProvider.notifier).state = subject;
+                        // Timer ekranına dön
+                        context.goNamed('timer');
+                      },
+                    ),
                     const SizedBox(height: 12),
                   ],
                 ),
@@ -85,35 +96,39 @@ class SubjectsPage extends ConsumerWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.items});
+  const _Section({
+    super.key,
+    required this.title,
+    required this.items,
+    required this.onTap,
+  });
 
   final String title;
   final List<Subject> items;
+  final void Function(Subject) onTap;
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppColors.mutedBrown,
+              ),
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 8),
-              ),
-            ],
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: Colors.black.withValues(alpha: 0.05),
+            ),
           ),
           child: Column(
             children: items
@@ -122,7 +137,10 @@ class _Section extends StatelessWidget {
                 .map(
                   (entry) => Column(
                     children: [
-                      _SubjectTile(item: entry.value),
+                      _SubjectTile(
+                        item: entry.value,
+                        onTap: onTap,
+                      ),
                       if (entry.key != items.length - 1)
                         Divider(
                           color: Colors.black.withValues(alpha: 0.05),
@@ -141,9 +159,14 @@ class _Section extends StatelessWidget {
 }
 
 class _SubjectTile extends StatelessWidget {
-  const _SubjectTile({required this.item});
+  const _SubjectTile({
+    super.key,
+    required this.item,
+    required this.onTap,
+  });
 
   final Subject item;
+  final void Function(Subject) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -160,12 +183,13 @@ class _SubjectTile extends StatelessWidget {
       ),
       title: Text(
         item.name,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(fontWeight: FontWeight.w800),
       ),
       trailing: const Icon(Icons.chevron_right, color: AppColors.mutedBrown),
-      onTap: () {},
+      onTap: () => onTap(item),
     );
   }
 

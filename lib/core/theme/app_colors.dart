@@ -13,4 +13,6 @@ class AppColors {
   static const warning = Color(0xFFEFB25F);
   static const info = Color(0xFF7CC2F6);
   static const softPink = Color(0xFFE8A5A5);
+  static const error = Color(0xFFE57373);
+  static const textSecondary = Color(0xFF8B7355);
 }

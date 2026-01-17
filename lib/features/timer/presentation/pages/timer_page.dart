@@ -9,6 +9,7 @@ import '../widgets/mode_selector.dart';
 import '../widgets/subject_dropdown.dart';
 import '../widgets/timer_controls.dart';
 import '../widgets/timer_ring.dart';
+import '../../../subjects/presentation/state/selected_subject_provider.dart';
 
 class TimerPage extends ConsumerStatefulWidget {
   const TimerPage({super.key});
@@ -50,6 +51,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
   Widget build(BuildContext context) {
     final timerState = ref.watch(timerProvider);
     final notifier = ref.read(timerProvider.notifier);
+    final selectedSubject = ref.watch(selectedSubjectProvider);
 
     return Scaffold(
       drawer: const AppDrawer(),
@@ -78,7 +80,10 @@ class _TimerPageState extends ConsumerState<TimerPage>
               mode: timerState.mode,
               onModeChanged: notifier.toggleMode,
             ),
-            if (timerState.mode == TimerMode.countdown) ...[
+            if (timerState.mode == TimerMode.countdown &&
+                !timerState.isRunning &&
+                !timerState.isPaused &&
+                timerState.elapsedSeconds == 0) ...[
               const SizedBox(height: 12),
               DurationPicker(
                 minutes: (timerState.totalSeconds ~/ 60),
@@ -114,14 +119,20 @@ class _TimerPageState extends ConsumerState<TimerPage>
                   const SizedBox(height: 28),
                   TimerControls(
                     isRunning: timerState.isRunning,
-                    onReset: notifier.reset,
-                    onToggle: notifier.toggleRunPause,
+                    isPaused: timerState.isPaused,
+                    onStart: () {
+                      // Ders seçilmemiş olsa bile pomodoro başlatılabilir.
+                      notifier.startPomodoro(selectedSubject?.remoteId);
+                    },
+                    onStop: notifier.pausePomodoro,
+                    onContinue: notifier.continuePomodoro,
+                    onFinish: notifier.finishPomodoro,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            const SubjectDropdown(),
+            SubjectDropdown(subject: selectedSubject),
             const SizedBox(height: 24),
           ],
         ),

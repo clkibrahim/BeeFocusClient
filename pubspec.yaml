@@ -36,6 +36,13 @@ dependencies:
   go_router: ^14.2.7
   flutter_riverpod: ^2.5.1
   google_fonts: ^6.2.1
+  isar: ^3.1.0+1
+  isar_flutter_libs:
+    path: packages/isar_flutter_libs
+  connectivity_plus: ^7.0.0
+  path_provider: ^2.1.4
+  flutter_secure_storage: ^10.0.0
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +54,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  isar_generator: ^3.1.0+1
+  build_runner: ^2.4.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

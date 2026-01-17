@@ -1,13 +1,23 @@
+import 'package:isar/isar.dart';
+
+part 'subject_model.g.dart';
+
+@collection
 class Subject {
   Subject({
-    required this.id,
+    this.id = Isar.autoIncrement,
+    required this.remoteId,
     required this.name,
     this.category,
     this.fields = const [],
     this.colorHex,
   });
 
-  final String id;
+  Id id;
+
+  @Index(unique: true, replace: true)
+  final String? remoteId;
+
   final String name;
   final int? category;
   final List<int> fields;
@@ -15,7 +25,7 @@ class Subject {
 
   factory Subject.fromJson(Map<String, dynamic> json) {
     return Subject(
-      id: (json['id'] ?? '').toString(),
+      remoteId: (json['id'] ?? '').toString(),
       name: json['name'] as String,
       category: _parseInt(json['category']),
       fields: _parseIntList(json['fields']),

@@ -5,43 +5,78 @@ class TimerControls extends StatelessWidget {
   const TimerControls({
     super.key,
     required this.isRunning,
-    required this.onReset,
-    required this.onToggle,
+    required this.isPaused,
+    required this.onStart,
+    required this.onStop,
+    required this.onContinue,
+    required this.onFinish,
   });
 
   final bool isRunning;
-  final VoidCallback onReset;
-  final VoidCallback onToggle;
+  final bool isPaused;
+  final VoidCallback onStart;
+  final VoidCallback onStop;
+  final VoidCallback onContinue;
+  final VoidCallback onFinish;
 
   @override
   Widget build(BuildContext context) {
+    if (!isRunning && !isPaused) {
+      // Başlangıç: sadece başlat düğmesi
+      return _RoundedIconButton(
+        diameter: 64,
+        icon: Icons.play_arrow,
+        iconColor: Colors.white,
+        background: AppColors.darkBrown,
+        onTap: onStart,
+        shadow: true,
+      );
+    }
+
+    if (isRunning) {
+      // Çalışırken: sadece durdurma düğmesi
+      return _RoundedIconButton(
+        diameter: 64,
+        icon: Icons.stop,
+        iconColor: Colors.white,
+        background: AppColors.darkBrown,
+        onTap: onStop,
+        shadow: true,
+      );
+    }
+
+    // Duraklatılmış: devam + bitir
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _RoundedIconButton(icon: Icons.refresh, onTap: onReset),
-        const SizedBox(width: 24),
         _RoundedIconButton(
-          diameter: 78,
-          icon: isRunning ? Icons.pause : Icons.play_arrow,
-          iconColor: Colors.white,
-          background: AppColors.darkBrown,
-          onTap: onToggle,
-          shadow: true,
+          diameter: 64,
+          icon: Icons.play_arrow,
+          background: Colors.white,
+          iconColor: AppColors.darkBrown,
+          onTap: onContinue,
         ),
         const SizedBox(width: 24),
-        const _RoundedIconButton(icon: Icons.volume_up_outlined),
+        _RoundedIconButton(
+          diameter: 64,
+          icon: Icons.check,
+          background: AppColors.darkBrown,
+          iconColor: Colors.white,
+          onTap: onFinish,
+          shadow: true,
+        ),
       ],
     );
   }
 }
 
-class _RoundedIconButton extends StatelessWidget {
+class _RoundedIconButton extends StatefulWidget {
   const _RoundedIconButton({
-    super.key,
     required this.icon,
     this.background = Colors.white,
     this.iconColor = AppColors.darkBrown,
     this.diameter = 54,
+    this.iconSize = 28,
     this.onTap,
     this.shadow = false,
   });
@@ -50,36 +85,64 @@ class _RoundedIconButton extends StatelessWidget {
   final Color background;
   final Color iconColor;
   final double diameter;
+  final double iconSize;
   final VoidCallback? onTap;
   final bool shadow;
 
   @override
+  State<_RoundedIconButton> createState() => _RoundedIconButtonState();
+}
+
+class _RoundedIconButtonState extends State<_RoundedIconButton> {
+  bool _pressed = false;
+
+  void _handleTapDown(TapDownDetails _) {
+    setState(() => _pressed = true);
+  }
+
+  void _handleTapEnd([TapUpDetails? _]) {
+    setState(() => _pressed = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: diameter,
-        width: diameter,
-        decoration: BoxDecoration(
-          color: background,
-          shape: BoxShape.circle,
-          boxShadow: shadow
-              ? const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 12,
-                    offset: Offset(0, 8),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+    final scale = _pressed ? 0.92 : 1.0;
+
+    return GestureDetector
+    (
+      onTap: widget.onTap,
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapEnd,
+      onTapCancel: _handleTapEnd,
+      child: AnimatedScale(
+        scale: scale,
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: Container(
+          height: widget.diameter,
+          width: widget.diameter,
+          decoration: BoxDecoration(
+            color: widget.background,
+            shape: BoxShape.circle,
+            boxShadow: widget.shadow
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 16,
+                      offset: const Offset(0, 10),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child:
+              Icon(widget.icon, color: widget.iconColor, size: widget.iconSize),
         ),
-        child: Icon(icon, color: iconColor, size: 28),
       ),
     );
   }
